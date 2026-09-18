@@ -1,2 +1,8 @@
 # nucleosome-calling
-Code for calling nucleosome positions using CPD-seq
+The code for calling nucleosome positions using CPD-seq data. For questions, please contact the corresponding author via jwyrick@wsu.edu.
+
+The relevant code files are included and named in the order they are meant to be executed in, starting with 000\_preprocess\_data.py and ending with z00\_paper\_figures.R. There are two types of code files present: R files and Python files. Most of the R files are just for producing intermediate plots and visualizing the data, while the Python files do most of the analysis (a notable exception here is that the Lomb-Scargle periodograms were performed using the lomb R package). The Python files with simple names (DataIO.py, Analaysis.py, SequenceHandling.py, and Nucleosomes.py) are all "library" files that are not meant to be executed directly but instead are imported by the other code files.
+
+To run this code, you must be in a Python environment that has numpy, scipy, statsmodels, and scikit-learn installed, and each of the R files have their requirements listed at the top. The R code was run in RStudio, but this is not strictly necessary (you may just need to set manually set the working directory in each file then). The source data must be placed in a directory above the code files in a folder named "Data" for the code to run as-is. If you have a different organization, you will need to change how the Python files are loading the data.
+
+Be warned, **lots** of intermediate files are created. Many of these intermediate files are in tab-separated values (.tsv) format. Also, lots of .wig files are created for intermediate data visualization using IGV.

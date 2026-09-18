@@ -1,0 +1,92 @@
+#############################################################################
+# This file will score the ENTIRE GENOME for the cl_ice_log2 model.         #
+#############################################################################
+
+print("===== 101_cl_ice_log2_score_genome_shuffled.py - Starting =====")
+
+#%% Setup
+
+# Imports
+import numpy as np
+import DataIO as io
+import Nucleosomes as nuc
+import Analysis as an
+import os as os
+
+# Variables
+dataset = "cl_ice_log2"
+nucleosome_std_relation = lambda MLEs, means : MLEs["k"] * (
+    means - MLEs["m"]
+)**2 + MLEs["l"]
+model = "linear"
+nucleosome_model = nuc.nucleosome_linear_model
+
+random_std_relation = lambda MLEs, means : MLEs["k"]*means + MLEs["l"]
+
+rng = np.random.default_rng(23784923492348938923492)
+
+#%% Load Data
+
+print("> Loading data...")
+genome, blocks, data_minus, data_plus = io.load_dataset(
+    "PreprocessedData",
+    [dataset]
+)
+chroms = []
+for chrom in genome:
+    chroms.append(chrom)
+chroms.remove("chrM") # No nucleosome in mitochondrial genome
+
+random_MLE = io.load_json("RandomPattern/" + dataset + "/0/MLE_values.json")
+random_out_dir = "RandomPattern/" + dataset + "/genome_ints"
+if (not os.path.isdir(random_out_dir)):
+    os.mkdir(random_out_dir)
+
+pattern = np.loadtxt(
+    "NucleosomePattern/" + dataset + "/damagePattern.tsv",
+    delimiter = "\t"
+)
+offsets = pattern[0,:]
+
+nucleosome_MLE = io.load_json(
+    "NucleosomePattern/" + dataset + "/models/" + model + "/MLE_values.json"
+)
+
+#%% Score Genome
+
+print("> Scoring genome...")
+bayes, nucInts, randInts, nucPrior, randPrior = nuc.score_genome_shuffled(
+    genome,
+    blocks,
+    chroms,
+    data_minus,
+    data_plus,
+    offsets,
+    nucleosome_model,
+    nucleosome_std_relation,
+    nucleosome_MLE,
+    random_std_relation,
+    random_MLE,
+    rng
+)
+
+io.output_tsv(bayes, "NucleosomePattern/" + dataset + "/shuffled_genome_scores")
+io.output_tsv(nucInts, "NucleosomePattern/"+dataset+"/shuffled_genome_nucleosome_ints")
+io.output_tsv(randInts, "NucleosomePattern/"+dataset+"/shuffled_genome_random_ints")
+
+io.output_list(
+    nucPrior,
+    "NucleosomePattern/" + dataset + "/shuffled_genome_nucleosome_prior.txt"
+)
+io.output_list(
+    randPrior,
+    "NucleosomePattern/" + dataset + "/shuffled_genome_random_prior.txt"
+)
+
+io.output_wig(bayes, "NucleosomePattern/" + dataset + "/shuffled_scores.wig")
+
+#%% End
+
+print(
+    "===== 101_cl_ice_log2_score_genome_shuffled.py - Exiting Properly ====="
+)

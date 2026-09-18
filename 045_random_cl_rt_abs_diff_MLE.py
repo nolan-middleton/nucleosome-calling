@@ -1,0 +1,109 @@
+#############################################################################
+# This file will find the maximum likelihood estimates for the nucleosome   #
+# random models assuming a constant baseline likelihood.                    #
+#############################################################################
+
+print("===== 045_random_cl_rt_abs_diff_MLE.py - Starting =====")
+
+#%% Setup
+
+# Imports
+import numpy as np
+import Analysis as an
+import Nucleosomes as nuc
+import DataIO as io
+import os as os
+
+# Defs
+def flat_mean(A):
+    return np.zeros(146) + A[0]
+
+def std_relation(A, means):
+    '''
+    A = [k, l]
+    
+    sigma = k*means + l
+    '''
+    return A[0]*means + A[1]
+
+dataset_name = "cl_rt_abs_diff"
+
+N = nuc.get_N()
+
+#%% Main Loop
+
+for i in range(N):
+    print("> " + str(i + 1) + "/" + str(N) + "...")
+    out_dir = "RandomPattern/" + dataset_name + "/" + str(i)
+    chroms = io.load_list("RandomPattern/data/"+str(i)+"/chromosomes.txt")
+    
+    print(">> Loading data...")
+    dataset = nuc.load_nucleosome_pattern_dataset(out_dir, chroms)
+    pattern = dataset[0]
+    minus_vals, plus_vals, selected_minus, selected_plus = dataset[1:]
+    
+    pooled_minus_vals = np.zeros((0, np.shape(pattern)[1]))
+    pooled_plus_vals = np.zeros((0, np.shape(pattern)[1]))
+    pooled_minus_dipys = np.zeros((0, np.shape(pattern)[1]), dtype = bool)
+    pooled_plus_dipys = np.zeros((0, np.shape(pattern)[1]), dtype = bool)
+    
+    for chrom in chroms:
+        pooled_minus_vals = np.vstack(
+            (pooled_minus_vals, minus_vals[chrom])
+        )
+        pooled_plus_vals = np.vstack(
+            (pooled_plus_vals, plus_vals[chrom])
+        )
+        pooled_minus_dipys = np.vstack(
+            (pooled_minus_dipys, selected_minus[chrom].astype(bool))
+        )
+        pooled_plus_dipys = np.vstack(
+            (pooled_plus_dipys, selected_plus[chrom].astype(bool))
+        )
+    
+    print(">> Overall MLE...")
+    x_vals = pattern[1,:]
+    y_vals = np.sqrt(pattern[2,:])
+    m = (
+        np.mean(x_vals)*np.mean(y_vals) - np.mean(x_vals*y_vals)
+    ) / (np.mean(x_vals)**2 - np.mean(x_vals**2))
+    b = np.mean(y_vals) - m*np.mean(x_vals)
+    
+    overall_results = nuc.pooled_MLE(
+        [np.mean(pattern[1,:]), m, b],
+        1,
+        pooled_minus_vals,
+        pooled_plus_vals,
+        pooled_minus_dipys,
+        pooled_plus_dipys,
+        flat_mean,
+        [],
+        std_relation,
+        additional_constraints = [{"type": "ineq", "fun": lambda A : A[1]}]
+    )
+    
+    overall_MLE = {
+        "a": overall_results[0],
+        "k": overall_results[1],
+        "l": overall_results[2]
+    }
+    
+    print(">> Hyperparameters...")
+    hyper_MLE = nuc.hyperparameter_MLE(
+        overall_MLE["a"],
+        minus_vals,
+        plus_vals,
+        selected_minus,
+        selected_plus,
+        flat_mean,
+        [],
+        std_relation,
+        [overall_MLE["k"], overall_MLE["l"]]
+    )
+    
+    print(">> Outputting...")
+    nuc.output_MLEs(out_dir+"/MLE_values.json", overall_MLE, hyper_MLE)
+
+#%% End
+
+print("===== 045_random_cl_rt_abs_diff_MLE.py - Exiting Properly =====")
